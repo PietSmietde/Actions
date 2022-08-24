@@ -1,0 +1,42 @@
+name: Create Release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+        description: Semver tag
+    secrets:
+      token:
+        required: true
+        description: GitHub Token
+
+jobs:
+  create-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    needs: [ preflight, build ]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - id: changelog
+        name: Build changelog
+        uses: mikepenz/release-changelog-builder-action@main
+        with:
+          configuration: ".github/workflows/config/changelog.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+
+      - id: release
+        name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+        with:
+          tag_name: ${{ inputs.tag }}
+          release_name: v${{ inputs.tag }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false

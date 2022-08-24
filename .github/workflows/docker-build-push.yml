@@ -1,3 +1,5 @@
+name: Docker build & push
+
 on:
   workflow_call:
     inputs:
@@ -5,87 +7,85 @@ on:
         required: true
         type: string
         description: Environment
-      repositoryPrefix:
+      repository-prefix:
         required: true
         type: string
         description: Container repository prefix
-      repositoryTarget:
+      repository-target:
         required: true
         type: string
         description: Repository target name like 'frontend', 'cli'. Dockerfile must be presend in named subfolder
+      version:
+        required: false
+        type: string
+        description: Semver version for docker
+    secrets:
+      docker-build-args:
+        required: false
+        description: Build-Args for Docker build
+      aws-region:
+        required: true
+        description: AWS region
+      aws-access-key:
+        required: true
+        description: AWS access key
+      aws-secret-access-key:
+        required: true
+        description: AWS secret access key
 
 jobs:
   build:
-    name: "Build ${{ inputs.target }}"
+    name: "Build ${{ inputs.repository-target }}"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Create version file
+        if: ${{ inputs.version }}
+        run: echo "${{ inputs.version }}" > version.txt
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.aws-access-key }}
+          aws-secret-access-key: ${{ secrets.aws-secret-access-key }}
+          aws-region: ${{ secrets.aws-region }}
 
-      - name: Login to Amazon ECR
+      - name: Login to ECR via AWS CLI
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository-prefix }}/${{ inputs.repository-target }}
+          github-token: ${{ github.token }}
+          tags: |
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},pattern={{version}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},pattern={{major}}.{{minor}}
+            type=sha,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},prefix=dev-
+            type=ref,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},event=pr,prefix=pr-
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Docker meta (production)
-        if: ${{ inputs.environment == 'production' }}
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repositoryPrefix }}/${{ matrix.repositoryTarget }}
-          github-token: ${{ github.token }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-
-      - name: Docker meta (non-production)
-        if: ${{ inputs.environment != 'production' }}
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repositoryPrefix }}/${{ matrix.repositoryTarget }}
-          github-token: ${{ github.token }}
-          tags: |
-            type=sha,prefix=dev-
-            type=ref,event=pr,prefix=pr-
-
-      - name: Login to ECR
+      - name: Login to ECR via Docker
         uses: docker/login-action@v1
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
-          username: ${{ secrets.AWS_ACCESS_KEY }}
-          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          username: ${{ secrets.aws-access-key }}
+          password: ${{ secrets.aws-secret-access-key }}
 
       - name: Build and push
         uses: docker/build-push-action@v2
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         with:
           context: .
-          file: ".docker/${{ matrix.repositoryTarget }}/Dockerfile"
+          file: ".docker/${{ inputs.repository-target }}/Dockerfile"
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          build-args: |
-            NOVA_USERNAME=${{ secrets.NOVA_USERNAME }}
-            NOVA_PASSWORD=${{ secrets.NOVA_PASSWORD }}
-
-      - name: Send Slack notification
-        uses: voxmedia/github-action-slack-notify-build@v1
-        with:
-          channel: bot-github
-          status: SUCCESS
-          color: good
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+          build-args: ${{ secrets.docker-build-args }}
