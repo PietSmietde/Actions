@@ -35,7 +35,7 @@ on:
 
 jobs:
   build:
-    name: "Build ${{ inputs.repository-target }}"
+    name: "Docker build & push"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
