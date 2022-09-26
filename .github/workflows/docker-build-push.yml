@@ -35,7 +35,7 @@ on:
 
 jobs:
   build:
-    name: "Docker build & push"
+    name: "Publish to Docker"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
