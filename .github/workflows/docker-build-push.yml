@@ -7,14 +7,14 @@ on:
         required: true
         type: string
         description: Environment
-      repository-prefix:
+      repository:
         required: true
         type: string
-        description: Container repository prefix
-      repository-target:
-        required: true
+        description: Full repository name
+      dockerfile:
+        required: false
         type: string
-        description: Repository target name like 'frontend', 'cli'. Dockerfile must be presend in named subfolder
+        description: Path to Dockerfile
       version:
         required: false
         type: string
@@ -60,7 +60,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository-prefix }}/${{ inputs.repository-target }}
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}
           github-token: ${{ github.token }}
           tags: |
             type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},pattern={{version}}
@@ -82,7 +82,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ".docker/${{ inputs.repository-target }}/Dockerfile"
+          file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
