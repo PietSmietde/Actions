@@ -102,4 +102,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ${{ secrets.docker-build-args }}
+            VERSION=${{ steps.version.outputs.version }}
             SENTRY_RELEASE=${{ steps.version.outputs.version }}
