@@ -32,20 +32,36 @@ on:
       aws-secret-access-key:
         required: true
         description: AWS secret access key
+    outputs:
+      version:
+        description: The detected version
+        value: ${{ jobs.build.outputs.version }}
 
 jobs:
   build:
     name: "Publish to Docker"
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Generate version string
+        id: version
+        # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        run: |
+          if [ '${{ github.ref_type }}' == 'tag' ]
+          then
+            echo "version=${{ github.ref }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(git rev-parse --short=7 ${{ github.sha }})" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create version file
-        if: ${{ inputs.version }}
-        run: | 
-          echo "${{ inputs.version }}" > version.txt
-          echo "module.exports = '${{ inputs.version }}';" > version.js
+        run: |
+          echo "${{ steps.version.outputs.version }}" > version.txt
+          echo "module.exports = '${{ steps.version.outputs.version }}';" > version.js
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -65,8 +81,8 @@ jobs:
           images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}
           github-token: ${{ github.token }}
           tags: |
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ inputs.version }},pattern={{version}}
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ inputs.version }},pattern={{major}}.{{minor}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ steps.version.outputs.version }},pattern={{version}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ steps.version.outputs.version }},pattern={{major}}.{{minor}}
             type=raw,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value=latest
             type=sha,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},prefix=dev-
 
