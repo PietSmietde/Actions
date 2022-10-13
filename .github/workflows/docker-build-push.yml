@@ -15,10 +15,6 @@ on:
         required: false
         type: string
         description: Path to Dockerfile
-      version:
-        required: true
-        type: string
-        description: Semver version for docker
     secrets:
       docker-build-args:
         required: false
