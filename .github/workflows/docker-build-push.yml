@@ -100,4 +100,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ secrets.docker-build-args }}
+          build-args: |
+            ${{ secrets.docker-build-args }}
+            SENTRY_RELEASE=${{ steps.version.outputs.version }}
