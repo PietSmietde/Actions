@@ -16,7 +16,7 @@ on:
         type: string
         description: Path to Dockerfile
       version:
-        required: false
+        required: true
         type: string
         description: Semver version for docker
     secrets:
@@ -43,7 +43,9 @@ jobs:
 
       - name: Create version file
         if: ${{ inputs.version }}
-        run: echo "${{ inputs.version }}" > version.txt
+        run: | 
+          echo "${{ inputs.version }}" > version.txt
+          echo "module.exports = '${{ inputs.version }}';" > version.js
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -63,10 +65,10 @@ jobs:
           images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}
           github-token: ${{ github.token }}
           tags: |
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},pattern={{version}}
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},pattern={{major}}.{{minor}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ inputs.version }},pattern={{version}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ inputs.version }},pattern={{major}}.{{minor}}
+            type=raw,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value=latest
             type=sha,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},prefix=dev-
-            type=ref,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},event=pr,prefix=pr-
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
