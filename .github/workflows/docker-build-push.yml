@@ -77,8 +77,8 @@ jobs:
           images: ${{ steps.login-ecr.outputs.registry }}/${{ inputs.repository }}
           github-token: ${{ github.token }}
           tags: |
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ steps.version.outputs.version }},pattern={{version}}
-            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value={{ steps.version.outputs.version }},pattern={{major}}.{{minor}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value=${{ steps.version.outputs.version }},pattern={{version}}
+            type=semver,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value=${{ steps.version.outputs.version }},pattern={{major}}.{{minor}}
             type=raw,enable=${{ (inputs.environment == 'production' && 'true') || 'false' }},value=latest
             type=sha,enable=${{ (inputs.environment != 'production' && 'true') || 'false' }},prefix=dev-
 
