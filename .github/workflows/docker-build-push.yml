@@ -49,7 +49,7 @@ jobs:
         run: |
           if [ '${{ github.ref_type }}' == 'tag' ]
           then
-            echo "version=${{ github.ref }}" >> $GITHUB_OUTPUT
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
             echo "version=dev-$(git rev-parse --short=7 ${{ github.sha }})" >> $GITHUB_OUTPUT
           fi
