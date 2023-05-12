@@ -55,7 +55,7 @@ jobs:
           then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "version=${{ inputs.sha-prefix || 'dev-' }}-$(git rev-parse --short=7 ${{ github.sha }})" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.sha-prefix || 'dev-' }}$(git rev-parse --short=7 ${{ github.sha }})" >> $GITHUB_OUTPUT
           fi
 
       - name: Create version file
