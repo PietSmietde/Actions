@@ -1,0 +1,61 @@
+name: Docker build
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        required: false
+        type: string
+        description: Path to Dockerfile
+      sha-prefix:
+        required: false
+        type: string
+        description: The commit SHA hash prefix if action is not dispatched by tag (default 'dev-')
+    secrets:
+      docker-build-args:
+        required: false
+        description: Build-Args for Docker build
+    outputs:
+      version:
+        description: The detected version
+        value: ${{ jobs.build.outputs.version }}
+
+jobs:
+  build:
+    name: "Build Docker Container"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate version string
+        id: version
+        # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        run: |
+          if [ '${{ github.ref_type }}' == 'tag' ]
+          then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ inputs.sha-prefix || 'dev-' }}$(git rev-parse --short=7 ${{ github.sha }})" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create version file
+        run: |
+          echo "${{ steps.version.outputs.version }}" > version.txt
+          echo "module.exports = '${{ steps.version.outputs.version }}';" > version.js
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          push: false
+          build-args: |
+            ${{ secrets.docker-build-args }}
+            VERSION=${{ steps.version.outputs.version }}
+            SENTRY_RELEASE=${{ steps.version.outputs.version }}
